@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.w3.org/1999/xhtml">
+
+<head>
+    <title>Advanced BBS Project</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://kit.fontawesome.com/fdb840a8cc.js" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.1.1/chart.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const firstNameSelect = document.getElementById('firstNameSelect');
+            const secondNameSelect = document.getElementById('secondNameSelect');
+            const lastNameSelect = document.getElementById('lastNameSelect');
+
+            // firstName 선택 시 이벤트 리스너 추가
+            firstNameSelect.addEventListener('change', function() {
+                const selectedFirstName = this.value;
+
+                // secondNameSelect와 lastNameSelect 드롭다운 초기화
+                secondNameSelect.innerHTML = '<option value="">시/군을 선택해주세요</option>';
+                secondNameSelect.disabled = true; // 선택할 때까지 비활성화
+                secondNameSelect.style.display = ''; // 화면에 표시
+
+                lastNameSelect.innerHTML = '<option value="">구를 선택해주세요</option>';
+                lastNameSelect.disabled = true; // 선택할 때까지 비활성화
+                lastNameSelect.style.display = ''; // 화면에 표시
+
+                // 선택된 firstName이 있는 경우에만 AJAX 요청 실행
+                if(selectedFirstName) {
+                    fetch(`/apt/api/search/secondNames?firstName=${encodeURIComponent(selectedFirstName)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            // 응답으로 받은 secondName 목록을 secondNameSelect에 채움
+                            data.forEach(secondName => {
+                                const optionElement = document.createElement('option');
+                                optionElement.value = secondName;
+                                optionElement.text = secondName;
+                                secondNameSelect.appendChild(optionElement);
+                            });
+                            secondNameSelect.disabled = false; // 활성화
+                        })
+                        .catch(error => console.error('Error fetching second names:', error));
+                }
+            });
+
+            // secondName 선택 시 이벤트 리스너 추가
+            secondNameSelect.addEventListener('change', function() {
+                const selectedSecondName = this.value;
+
+                // lastNameSelect 드롭다운 초기화
+                lastNameSelect.innerHTML = '<option value="">구를 선택해주세요 &nbsp;&nbsp; &nbsp;</option>';
+                lastNameSelect.disabled = true; // 선택할 때까지 비활성화
+
+                // 선택된 secondName이 있는 경우에만 AJAX 요청 실행
+                if(selectedSecondName) {
+                    fetch(`/apt/api/search/lastNames?firstName=${encodeURIComponent(firstNameSelect.value)}&secondName=${encodeURIComponent(selectedSecondName)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            // 응답으로 받은 lastName 목록을 lastNameSelect에 채움
+                            data.forEach(lastName => {
+                                const optionElement = document.createElement('option');
+                                optionElement.value = lastName;
+                                optionElement.text = lastName;
+                                lastNameSelect.appendChild(optionElement);
+                            });
+                            lastNameSelect.disabled = false; // 활성화
+                        })
+                        .catch(error => console.error('Error fetching last names:', error));
+                }
+            });
+        });
+
+    </script>
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%); /* 모달 창을 정확한 중앙으로 이동 */
+            width: 600px;
+            height: 100%;
+            overflow: auto;
+            margin-top: 130px;
+
+        }
+
+        .modal-content {
+            padding: 20px;
+            border: 1px solid #888;
+            width: 500px;
+        }
+
+        .close {
+            color: #aaaaaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        * {
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+
+        a {
+            text-decoration: none;
+        }
+
+        .disabled-link {
+            pointer-events: none;
+        }
+
+        #sidebar {
+            display: none;
+            /* 초기에는 숨김 */
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 250px;
+            height: 500px;
+            background-color: #f8f9fa;
+            padding: 20px;
+            box-shadow: -2px 0 2px rgba(0, 0, 0, 0.1);
+            z-index: 999;
+        }
+
+        #sidebar-content {
+            margin-top: 80px;
+            /* 사이드바 내용의 상단 여백 설정 */
+        }
+    </style>
+</head>
+
+<body>
+<div th:insert="~{fragments/base :: top}"></div>
+<div style="margin-top:70px;">
+    <form action="/apt/api/search" method="post" enctype="multipart/form-data">
+        <table class="table table-borderless">
+            <tr>
+                <td><label class="col-form-label">검색</label></td>
+                <td>
+                    <select id="firstNameSelect" name="firstName">
+                        <option value="">시/도를 선택해주세요</option>
+                        <th:block th:each="firstName : ${firstNames}">
+                            <option th:value="${firstName}" th:text="${firstName}"></option>
+                        </th:block>
+                    </select>
+                    <select class="mt-1 ms-2" id="secondNameSelect" name="secondName" disabled>
+                        <option value="">시/군을 선택해주세요</option>
+                    </select>
+                    <select class="mt-1 ms-2" id="lastNameSelect" name="lastName" disabled>
+                        <option value="">구를 선택해주세요</option>
+                    </select>
+                    <select class="mt-1 ms-2" id="periodSelect" name="period">
+                        <option value="1" selected>1개월</option>
+                        <option value="3">3개월</option>
+                        <option value="6">6개월</option>
+                        <option value="12">12개월</option>
+                    </select>
+                    <button class="btn btn-primary ms-2" type="submit">확인</button>
+                </td>
+            </tr>
+        </table>
+    </form>
+</div>
+<div id="map" style="width: 100%;height:500px;"></div>
+<div id="sidebar">
+    <div id="sidebar-content"></div>
+</div>
+<script type="text/javascript" src="http://dapi.kakao.com/v2/maps/sdk.js?appkey=01c9675fcc83d5609d3c5d4cf5c18ee2&libraries=services,clusterer"></script>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    var mapContainer = document.getElementById('map'), // 지도를 표시할 div
+        mapOption = {
+            center: new kakao.maps.LatLng([[${session.centerLat}]], [[${session.centerLon}]]), // 지도의 중심좌표
+            level: 5, // 지도의 확대 레벨
+            mapTypeId: kakao.maps.MapTypeId.ROADMAP // 지도종류
+        };
+    // 지도를 생성한다
+    var map = new kakao.maps.Map(mapContainer, mapOption);
+
+     // 지도 타입 변경 컨트롤을 생성한다
+   var mapTypeControl = new kakao.maps.MapTypeControl();
+
+    // 지도의 상단 우측에 지도 타입 변경 컨트롤을 추가한다
+   map.addControl(mapTypeControl, kakao.maps.ControlPosition.TOPRIGHT);
+
+    // 지도에 확대 축소 컨트롤을 생성한다
+    var zoomControl = new kakao.maps.ZoomControl();
+
+    // 지도의 우측에 확대 축소 컨트롤을 추가한다
+    map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT);
+
+    // 리스트를 받아올 객체 배열입니다
+    var resultList = /*[[${resultList}]]*/ [];
+    // 마커를 표시할 위치와 title 객체 배열입니다
+    var positions = [];
+
+    resultList.forEach(function(result) {
+        var latlng = new kakao.maps.LatLng(result.lat, result.lon); // 위도와 경도 정보를 이용하여 LatLng 객체를 생성합니다.
+        // positions 배열에 위도, 경도, 내용을 저장합니다.
+        positions.push({
+            latlng: latlng, // LatLng 객체
+            content: result // 마커에 표시할 내용 (result 전체)
+        });
+    });
+
+    // 마커 이미지의 이미지 주소입니다
+    var imageSrc = "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png";
+    // 마커 이미지의 이미지 크기 입니다
+    var imageSize = new kakao.maps.Size(24, 35);
+    // 마커 이미지를 생성합니다
+    var markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize);
+
+    // 마커 클릭 이벤트 등록
+    positions.forEach(function(position) {
+        var marker = new kakao.maps.Marker({
+            map: map, // 마커를 표시할 지도
+            position: position.latlng, // 마커를 표시할 위치
+            title: position.content.아파트명, // 마커의 타이틀, 마커에 마우스를 올리면 타이틀이 표시됩니다
+            image: markerImage // 마커 이미지
+        });
+
+        // 마커 클릭 이벤트 등록
+        kakao.maps.event.addListener(marker, 'click', function() {
+            // 클릭된 마커의 정보를 가져와서 사이드바에 표시하는 함수 호출
+            displaySidebarContent(position.content);
+        });
+    });
+
+    // 사이드바 클릭 이벤트 등록
+    var sidebar = document.getElementById('sidebar');
+    sidebar.addEventListener('click', function() {
+        // 사이드바를 숨기는 함수 호출
+        hideSidebar();
+    });
+
+    // 클릭된 마커의 정보를 가져와서 사이드바에 표시하는 함수
+    function displaySidebarContent(apartmentInfo) {
+        // 가져온 아파트 정보를 사이드바에 표시
+        var sidebarContent = document.getElementById('sidebar-content');
+        sidebarContent.innerHTML = `
+        <p>아파트명: ${apartmentInfo.아파트}&nbsp;${apartmentInfo.층}층</p>
+        <p>동: ${apartmentInfo.법정동}</p>
+        <p>도로명: ${apartmentInfo.도로명}</p>
+        <p>건축년도: ${apartmentInfo.건축년도}년</p>
+        <p>거래금액: ${apartmentInfo.거래금액},000원</p>
+        <p>전용면적: ${apartmentInfo.전용면적}m^2</p>
+
+        <button class="btn btn-primary" onclick="openModal()">그래프 보기</button>
+        <!-- 여기에 필요한 정보를 추가하세요 -->
+    `;
+
+        // 사이드바 보이도록 설정
+        sidebar.style.display = 'block';
+    }
+
+    // 사이드바를 숨기는 함수
+    function hideSidebar() {
+        // 사이드바 숨김 설정
+        sidebar.style.display = 'none';
+    }
+
+    // 모달 창 열기
+    function openModal() {
+        document.getElementById("myModal").style.display = "block";
+        updateCharts(); // 모달 창이 열릴 때 그래프 업데이트 함수 호출
+    }
+
+    // 모달 창 닫기
+    function closeModal() {
+        document.getElementById("myModal").style.display = "none";
+    }
+
+    // 그래프 업데이트 함수
+    function updateCharts() {
+        var ctx1 = document.getElementById("scatterChart1").getContext("2d");
+        var scatterChart1 = new Chart(ctx1, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: "Sample Dataset 1",
+                     data: resultList.map(item => ({ x: new Date(item.년월일).getTime(), y: parseFloat(item.거래금액.replace(",", "")), backgroundColor: getColor(item.전용면적) })),
+                    radius: 8,
+
+                }]
+            },
+            options: {
+                responsive: false,
+                scales: {
+                    x: {
+                        type: 'linear',
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+
+     function getColor(전용면적) {
+        switch (전용면적) {
+            case "전용면적1":
+                return 'yellow';
+            case "전용면적2":
+                return 'aqua';
+            case "전용면적3":
+                return 'pink';
+            case "전용면적4":
+                return 'lightgreen';
+            case "전용면적5":
+                return 'gold';
+            case "전용면적6":
+                return 'lightblue';
+            default:
+                return 'black'; // 기본 색상
+        }
+    }
+    /*]]>*/
+</script>
+<footer th:replace="~{fragments/base :: bottom}"></footer>
+<div id="myModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <!-- 그래프를 표시할 공간 -->
+        <div style="display: flex;">
+            <div style="width: 50%; margin-right: 20px;">
+                <canvas id="scatterChart1" aria-label="chart" height="500" width="400" ></canvas>
+            </div>
+            <!-- 이하 그래프 추가 -->
+        </div>
+    </div>
+</div>
+</body>
+
+</html>
